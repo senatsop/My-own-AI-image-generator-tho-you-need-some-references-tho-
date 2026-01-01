@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Senatsop Random Things</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #09090b; color: #e2e2e2; }
+        .glass {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4">
+
+    <div class="w-full max-w-lg space-y-6">
+        
+        <!-- Header -->
+        <div class="text-center space-y-1">
+            <h1 class="text-2xl font-semibold tracking-tight text-white">Style Transfer<br> Made By Senatsop</h1>
+            <p class="text-sm text-zinc-400">Upload your photo to apply the low-light aesthetic</p>
+        </div>
+
+        <!-- Main Card -->
+        <div class="glass rounded-2xl p-6 space-y-6 shadow-2xl">
+            
+            <!-- Upload Area -->
+            <div class="space-y-2">
+                <label class="block text-xs font-medium text-zinc-300 uppercase tracking-wider">Reference Photo</label>
+                <div class="relative group cursor-pointer">
+                    <input type="file" id="fileInput" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 z-10 cursor-pointer" onchange="handleFileSelect(event)">
+                    <div id="uploadPlaceholder" class="w-full h-48 rounded-xl border-2 border-dashed border-zinc-700 bg-black/20 flex flex-col items-center justify-center gap-2 group-hover:border-zinc-500 transition-colors">
+                        <i data-lucide="upload-cloud" class="w-8 h-8 text-zinc-500"></i>
+                        <span class="text-xs text-zinc-500">Tap to upload your selfie</span>
+                    </div>
+                    <img id="previewImage" class="hidden w-full h-64 object-cover rounded-xl border border-zinc-700" alt="Preview">
+                    <button id="removeBtn" onclick="removeImage(event)" class="hidden absolute top-2 right-2 p-1 bg-black/50 rounded-full hover:bg-black/70 z-20 text-white">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Prompt Controls -->
+            <div class="space-y-3">
+                <div class="flex items-center justify-between">
+                    <label class="text-xs font-medium text-zinc-300 uppercase tracking-wider">Prompt</label>
+                    <button onclick="toggleGender()" id="genderToggle" class="text-[10px] px-2 py-1 rounded-full bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 transition-colors border border-indigo-500/30">
+                        Switch to Boy Mode
+                    </button>
+                </div>
+                <textarea id="promptInput" rows="4" class="w-full bg-black/40 border border-zinc-700 rounded-lg p-3 text-xs text-zinc-300 focus:outline-none focus:border-indigo-500 resize-none" spellcheck="false">Vertical, realistic low-light phone selfie in a dim bedroom at night. Same face as reference. Cool bluish-purple screen glow lighting on a pale face; background mostly dark with beige blackout curtains on the left. Sleepy, cozy, late-night lo-fi vibe. Close-up, slightly low angle. Subject lying on stomach, propped on a grey pillow. Soft, dreamy/blank stare, mouth slightly open. Hand near face, index finger touching lower lip. Wearing a light White sleeveless camisole; thin lace strap visible, left shoulder bare. Soft focus, visible grain/noise, high contrast. Negative Prompt: bright daylight, sunshine, studio/flash lighting, warm/orange tones, heavy makeup, deformed hands.</textarea>
+            </div>
+
+            <!-- Action Button -->
+            <button id="generateBtn" onclick="generate()" disabled class="w-full py-3 bg-white text-black font-medium rounded-xl disabled:opacity-50 disabled:cursor-not-allowed hover:bg-zinc-200 transition-colors flex items-center justify-center gap-2">
+                <span id="btnText">Generate Image</span>
+                <i data-lucide="sparkles" class="w-4 h-4"></i>
+            </button>
+        </div>
+
+        <!-- Result Area -->
+        <div id="resultArea" class="hidden glass rounded-2xl p-2 shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div class="relative w-full aspect-[3/4] bg-black rounded-xl overflow-hidden group">
+                 <img id="resultImage" class="w-full h-full object-cover" alt="Generated Result">
+                 <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
+                     <button onclick="downloadImage()" class="p-3 bg-white text-black rounded-full hover:scale-110 transition-transform">
+                         <i data-lucide="download" class="w-5 h-5"></i>
+                     </button>
+                 </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const apiKey = ""; // Environment provided
+        let currentBase64 = null;
+        let currentMimeType = null;
+        const promptInput = document.getElementById('promptInput');
+        const uploadPlaceholder = document.getElementById('uploadPlaceholder');
+        const previewImage = document.getElementById('previewImage');
+        const removeBtn = document.getElementById('removeBtn');
+        const generateBtn = document.getElementById('generateBtn');
+        const resultArea = document.getElementById('resultArea');
+        const resultImage = document.getElementById('resultImage');
+        const btnText = document.getElementById('btnText');
+        const genderToggle = document.getElementById('genderToggle');
+
+        // Initial setup
+        lucide.createIcons();
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    currentBase64 = e.target.result.split(',')[1];
+                    currentMimeType = file.type;
+                    previewImage.src = e.target.result;
+                    
+                    uploadPlaceholder.classList.add('hidden');
+                    previewImage.classList.remove('hidden');
+                    removeBtn.classList.remove('hidden');
+                    generateBtn.disabled = false;
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function removeImage(e) {
+            e.stopPropagation(); // Prevent triggering file input
+            document.getElementById('fileInput').value = '';
+            currentBase64 = null;
+            currentMimeType = null;
+            uploadPlaceholder.classList.remove('hidden');
+            previewImage.classList.add('hidden');
+            removeBtn.classList.add('hidden');
+            generateBtn.disabled = true;
+        }
+
+        function toggleGender() {
+            let text = promptInput.value;
+            if (genderToggle.innerText.includes("Boy")) {
+                text = text.replace(/camisole/gi, "tank top");
+                text = text.replace(/lace strap visible/gi, "straps visible");
+                text = text.replace(/feminine/gi, "masculine");
+                promptInput.value = text;
+                genderToggle.innerText = "Switch to Girl Mode";
+                genderToggle.classList.replace('text-indigo-300', 'text-pink-300');
+                genderToggle.classList.replace('bg-indigo-500/20', 'bg-pink-500/20');
+                genderToggle.classList.replace('border-indigo-500/30', 'border-pink-500/30');
+            } else {
+                text = text.replace(/tank top/gi, "camisole");
+                text = text.replace(/straps visible/gi, "lace strap visible");
+                text = text.replace(/masculine/gi, "feminine");
+                promptInput.value = text;
+                genderToggle.innerText = "Switch to Boy Mode";
+                genderToggle.classList.replace('text-pink-300', 'text-indigo-300');
+                genderToggle.classList.replace('bg-pink-500/20', 'bg-indigo-500/20');
+                genderToggle.classList.replace('border-pink-500/30', 'border-indigo-500/30');
+            }
+        }
+
+        async function generate() {
+            if (!currentBase64) return;
+
+            generateBtn.disabled = true;
+            btnText.textContent = "Dreaming...";
+            resultArea.classList.add('hidden');
+            
+            const prompt = promptInput.value;
+
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{
+                            parts: [
+                                { text: prompt },
+                                { inlineData: { mimeType: currentMimeType, data: currentBase64 } }
+                            ]
+                        }],
+                        generationConfig: {
+                            responseModalities: ["IMAGE"]
+                        }
+                    })
+                });
+
+                if (!response.ok) throw new Error('Generation failed');
+
+                const data = await response.json();
+                const base64Image = data.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
+
+                if (base64Image) {
+                    resultImage.src = `data:image/png;base64,${base64Image}`;
+                    resultArea.classList.remove('hidden');
+                    resultArea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else {
+                    throw new Error('No image in response');
+                }
+
+            } catch (error) {
+                console.error(error);
+                alert("Something went wrong. Please try again.");
+            } finally {
+                generateBtn.disabled = false;
+                btnText.textContent = "Generate Image";
+            }
+        }
+
+        function downloadImage() {
+            const link = document.createElement('a');
+            link.href = resultImage.src;
+            link.download = 'remix_selfie.png';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
